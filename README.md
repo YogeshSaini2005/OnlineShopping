@@ -8,6 +8,7 @@
 
 ---
 
+
 ## 🌟 What’s Inside OnlineShop?
 
 This repository is packed with:
@@ -65,9 +66,3 @@ You can find all these features and more in the **OnlineShop** repository on Git
 
 Contributions, feedback, and suggestions are highly welcome! Let’s collaborate to make **OnlineShop** even better.
 
----
-
-## Stay Connected
-
-- **GitHub**: [BehzadDara](https://github.com/BehzadDara)
-- **LinkedIn**: [Behzad Dara](https://www.linkedin.com/in/behzaddara/)
