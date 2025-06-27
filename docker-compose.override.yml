@@ -1,0 +1,159 @@
+version: '3.4'
+
+services:
+
+  catalogdb:
+    container_name: catalogdb
+    restart: always
+    volumes:
+      - ./mongo_data:/data/db
+    ports:
+      - 27017:27017
+
+  basketdb:
+    container_name: basketdb
+    restart: always
+    ports:
+      - 6379:6379
+
+  discountdb:
+    container_name: discountdb
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin1234
+      - POSTGRES_DB=discountdb
+    restart: always
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+
+  orderdb:
+    container_name: orderdb
+    environment:
+      - SA_PASSWORD=Admin1234
+      - ACCEPT_EULA=Y
+    restart: always
+    ports:
+      - 1433:1433
+
+  mongoclient:
+    container_name: mongoclient
+    restart: always
+    ports:
+      - 5040:3000
+
+  pgadmin:
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@aspnetrun.com
+      - PGADMIN_DEFAULT_PASSWORD=admin1234
+    restart: always
+    ports:
+      - 5050:80
+    volumes:
+      - pgadmin_data:/root/.pgadmin
+
+  portainer:
+    container_name: portainer
+    restart: always
+    ports:
+      - 9000:9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+  rabbitmq:
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  catalog.api:
+    container_name: catalog.api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8000
+      - DatabaseSettings:ConnectionString=mongodb://catalogdb:27017
+    depends_on:
+      - catalogdb
+    ports:
+      - 8000:8000
+
+  basket.api:
+    container_name: basket.api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8001
+      - CacheSettings:ConnectionString=basketdb:6379
+      - GrpcSettings:DiscountUrl=http://discount.grpc:8003
+      - EventBusSettings:HostAddress=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - basketdb
+      - rabbitmq
+    ports:
+      - 8001:8001
+
+  discount.api:
+    container_name: discount.api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8002
+      - DatabaseSettings:ConnectionString=Server=discountdb;Port=5432;Database=discountdb;User Id=admin;Password=admin1234
+    depends_on:
+      - discountdb
+    ports:
+      - 8002:8002
+
+  discount.grpc:
+    container_name: discount.grpc
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8003
+      - DatabaseSettings:ConnectionString=Server=discountdb;Port=5432;Database=discountdb;User Id=admin;Password=admin1234
+    ports:
+      - 8003:8003
+
+  ordering.api:
+    container_name: ordering.api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8004
+      - ConnectionStrings:OrderingConnectionString=Server=orderdb;Database=orderdb;User Id=sa;Password=Admin1234;TrustServerCertificate=True;
+      # Connect orderdb in SSMS using IpConfig -> Ethernet adapter vEthernet (WSL) -> Ip V4
+      - EventBusSettings:HostAddress=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - orderdb
+      - rabbitmq
+    ports:
+      - 8004:8004
+
+  ocelotapigateway:
+    container_name: ocelotapigateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8010
+    depends_on:
+      - catalog.api
+      - basket.api
+      - discount.api
+      - ordering.api
+    ports:
+      - 8010:8010
+
+  onlineshop.aggregator:
+    container_name: onlineshop.aggregator
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8005
+      - ApiSettings:CatalogUrl=http://catalog.api:8000
+      - ApiSettings:BasketUrl=http://basket.api:8001
+      - ApiSettings:OrderingUrl=http://ordering.api:8004
+    depends_on:
+      - catalog.api
+      - basket.api
+      - ordering.api
+    ports:
+      - 8005:8005
+
